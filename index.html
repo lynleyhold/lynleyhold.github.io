@@ -2,46 +2,105 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Lynley Hold</title>
+  <title>Compliance Tracker</title>
   <style>
-    body { font-family: -apple-system, sans-serif; text-align: center; padding: 60px 20px; background: #0d1117; color: #e6edf3; }
-    h1 { font-size: 42px; margin-bottom: 6px; }
-    .sub { font-size: 18px; color: #8b949e; margin-bottom: 40px; }
-    table { margin: 0 auto; border-collapse: collapse; width: 100%; max-width: 640px; }
-    th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid #21262d; }
-    th { color: #8b949e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
-    td { font-size: 16px; }
+    body { font-family: -apple-system, sans-serif; background: #0d1117; color: #e6edf3; max-width: 680px; margin: 0 auto; padding: 50px 20px; }
+    h1 { text-align: center; margin-bottom: 4px; }
+    .sub { text-align: center; color: #8b949e; margin-bottom: 26px; }
+    input, button { font-size: 15px; padding: 10px 12px; border-radius: 6px; border: 1px solid #30363d; background: #161b22; color: #e6edf3; margin: 4px; }
+    button { background: #238636; border-color: #238636; cursor: pointer; }
+    button.secondary { background: #21262d; border-color: #30363d; }
+    .card { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 20px; margin-bottom: 18px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #21262d; }
+    th { color: #8b949e; font-size: 12px; text-transform: uppercase; }
     .status-ok { color: #3fb950; }
     .status-review { color: #d29922; }
-    #loading { color: #8b949e; }
+    .hidden { display: none; }
+    #msg { color: #f85149; text-align: center; min-height: 20px; }
+    .row { text-align: center; }
   </style>
 </head>
 <body>
-  <h1>Hi, I'm Lynley 👋</h1>
-  <p class="sub">Building the future of healthcare compliance — one commit at a time.</p>
-  <div id="content">
-    <p id="loading">Loading providers from the database…</p>
+  <h1>Compliance Tracker</h1>
+  <p class="sub">Every user sees only their own providers.</p>
+  <div id="msg"></div>
+  <div id="auth" class="card">
+    <div class="row">
+      <input id="email" type="email" placeholder="email" />
+      <input id="password" type="password" placeholder="password" />
+    </div>
+    <div class="row">
+      <button onclick="signUp()">Sign up</button>
+      <button class="secondary" onclick="logIn()">Log in</button>
+    </div>
+  </div>
+  <div id="app" class="hidden">
+    <div class="card">
+      <div class="row"><span id="who"></span> <button class="secondary" onclick="logOut()">Log out</button></div>
+    </div>
+    <div class="card">
+      <strong>Add a provider</strong>
+      <div class="row">
+        <input id="p-name" placeholder="name" />
+        <input id="p-specialty" placeholder="specialty" />
+        <input id="p-status" placeholder="status (e.g. Up to date)" />
+      </div>
+      <div class="row"><button onclick="addProvider()">Add</button></div>
+    </div>
+    <div class="card"><strong>My providers</strong><div id="list"></div></div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const SUPABASE_URL = 'https://ieszvniqoqkpeomchwdz.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_ERDjJNB_0FQHWOrntKKzGQ_4YkP_-24';
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    function setMsg(t) { document.getElementById('msg').textContent = t || ''; }
+    async function signUp() {
+      setMsg('');
+      const { error } = await db.auth.signUp({ email: document.getElementById('email').value, password: document.getElementById('password').value });
+      if (error) setMsg(error.message);
+    }
+    async function logIn() {
+      setMsg('');
+      const { error } = await db.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value });
+      if (error) setMsg(error.message);
+    }
+    async function logOut() { await db.auth.signOut(); }
+    async function addProvider() {
+      setMsg('');
+      const { error } = await db.from('providers').insert({ name: document.getElementById('p-name').value, specialty: document.getElementById('p-specialty').value, compliance_status: document.getElementById('p-status').value });
+      if (error) { setMsg(error.message); return; }
+      document.getElementById('p-name').value = '';
+      document.getElementById('p-specialty').value = '';
+      document.getElementById('p-status').value = '';
+      loadProviders();
+    }
     async function loadProviders() {
       const { data, error } = await db.from('providers').select('name, specialty, compliance_status').order('id');
-      const content = document.getElementById('content');
-      if (error) {
-        content.innerHTML = '<p style="color:#f85149">Error loading data: ' + error.message + '</p>';
-        return;
-      }
+      const list = document.getElementById('list');
+      if (error) { setMsg(error.message); return; }
+      if (!data.length) { list.innerHTML = '<p style="color:#8b949e">No providers yet. Add one above.</p>'; return; }
       let rows = '';
       for (const p of data) {
         const cls = p.compliance_status === 'Up to date' ? 'status-ok' : 'status-review';
         rows += '<tr><td>' + p.name + '</td><td>' + p.specialty + '</td><td class="' + cls + '">' + p.compliance_status + '</td></tr>';
       }
-      content.innerHTML = '<table><thead><tr><th>Provider</th><th>Specialty</th><th>Compliance</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      list.innerHTML = '<table><thead><tr><th>Provider</th><th>Specialty</th><th>Compliance</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
-    loadProviders();
+    function render(session) {
+      if (session) {
+        document.getElementById('auth').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        document.getElementById('who').textContent = 'Logged in as ' + session.user.email;
+        loadProviders();
+      } else {
+        document.getElementById('auth').classList.remove('hidden');
+        document.getElementById('app').classList.add('hidden');
+      }
+    }
+    db.auth.onAuthStateChange(function(event, session) { render(session); });
+    db.auth.getSession().then(function(res) { render(res.data.session); });
   </script>
 </body>
 </html>
