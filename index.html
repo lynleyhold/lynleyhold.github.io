@@ -4,13 +4,44 @@
   <meta charset="UTF-8">
   <title>Lynley Hold</title>
   <style>
-    body { font-family: -apple-system, sans-serif; text-align: center; padding: 80px; background: #0d1117; color: #e6edf3; }
-    h1 { font-size: 48px; }
-    p { font-size: 20px; color: #8b949e; }
+    body { font-family: -apple-system, sans-serif; text-align: center; padding: 60px 20px; background: #0d1117; color: #e6edf3; }
+    h1 { font-size: 42px; margin-bottom: 6px; }
+    .sub { font-size: 18px; color: #8b949e; margin-bottom: 40px; }
+    table { margin: 0 auto; border-collapse: collapse; width: 100%; max-width: 640px; }
+    th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid #21262d; }
+    th { color: #8b949e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { font-size: 16px; }
+    .status-ok { color: #3fb950; }
+    .status-review { color: #d29922; }
+    #loading { color: #8b949e; }
   </style>
 </head>
 <body>
   <h1>Hi, I'm Lynley 👋</h1>
-  <p>Building the future of healthcare compliance — one commit at a time.</p>
+  <p class="sub">Building the future of healthcare compliance — one commit at a time.</p>
+  <div id="content">
+    <p id="loading">Loading providers from the database…</p>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://ieszvniqoqkpeomchwdz.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_ERDjJNB_0FQHWOrntKKzGQ_4YkP_-24';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    async function loadProviders() {
+      const { data, error } = await db.from('providers').select('name, specialty, compliance_status').order('id');
+      const content = document.getElementById('content');
+      if (error) {
+        content.innerHTML = '<p style="color:#f85149">Error loading data: ' + error.message + '</p>';
+        return;
+      }
+      let rows = '';
+      for (const p of data) {
+        const cls = p.compliance_status === 'Up to date' ? 'status-ok' : 'status-review';
+        rows += '<tr><td>' + p.name + '</td><td>' + p.specialty + '</td><td class="' + cls + '">' + p.compliance_status + '</td></tr>';
+      }
+      content.innerHTML = '<table><thead><tr><th>Provider</th><th>Specialty</th><th>Compliance</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+    loadProviders();
+  </script>
 </body>
 </html>
